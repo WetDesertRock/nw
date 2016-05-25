@@ -31,7 +31,7 @@ local function override_rect(x, y, w, h, x1, y1, w1, h1)
 end
 
 local function primary_screen_h()
-	return objc.NSScreen:screens():objectAtIndex(0):frame().size.height
+	return objc.NSScreen:screens():objectAtIndex(0).frame.size.height
 end
 
 --convert rect from bottom-up relative-to-main-screen space to top-down relative-to-main-screen space
@@ -83,7 +83,7 @@ end
 
 function app:ver(what)
 	if what == 'osx' then
-		local s = objc.tolua(objc.NSProcessInfo:processInfo():operatingSystemVersionString()) --OSX 10.2+
+		local s = objc.tolua(objc.NSProcessInfo:processInfo().operatingSystemVersionString) --OSX 10.2+
 		return s:match'%d+%.%d+%.%d+'
 	end
 end
@@ -219,7 +219,7 @@ function window:new(app, frontend, t)
 
 	--enable the fullscreen button.
 	if not toolbox and t.fullscreenable and self.app.frontend:ver'OSX 10.7' then
-		self.nswin:setCollectionBehavior(bit.bor(tonumber(self.nswin:collectionBehavior()),
+		self.nswin:setCollectionBehavior(bit.bor(tonumber(self.nswin.collectionBehavior),
 			objc.NSWindowCollectionBehaviorFullScreenPrimary)) --OSX 10.7+
 	end
 
@@ -600,7 +600,7 @@ function window:_maximized_frame()
 	local screen = self.nswin:screen()
 	if not screen then return false end --off-screen window
 	local sx, sy, sw, sh = unpack_nsrect(screen:visibleFrame())
-	local fx, fy, fw, fh = unpack_nsrect(self.nswin:frame())
+	local fx, fy, fw, fh = unpack_nsrect(self.nswin.frame)
 	local csw, csh = self:_constrain_size(sw, sh)
 	if csw < sw or csh < sh then
 		--constrained: size must match max. size
@@ -631,7 +631,7 @@ end
 --window to the active screen instead of the screen that matches the window's
 --frame rect. Hiding via close() doesn't have this problem.
 function window:_save_restore_frame()
-	self._restore_frame = self.nswin:frame()
+	self._restore_frame = self.nswin.frame
 end
 function window:_maximize_frame_manually()
 	self:_save_restore_frame()
@@ -760,7 +760,7 @@ end
 --state/fullscreen mode ------------------------------------------------------
 
 function window:fullscreen()
-	return bit.band(tonumber(self.nswin:styleMask()),
+	return bit.band(tonumber(self.nswin.styleMask),
 			objc.NSFullScreenWindowMask) == objc.NSFullScreenWindowMask
 end
 
@@ -824,13 +824,13 @@ function Window:windowWillEnterFullScreen()
 	self.backend._maximized = self.backend:maximized()
 	--save the frame style and rect and change them for fullscreen.
 	self.nw_stylemask = self:styleMask()
-	self.nw_frame = self:frame()
+	self.nw_frame = self.frame
 	self:setStyleMask(bit.bor(
 		objc.NSFullScreenWindowMask,  --fullscreen appearance
 		objc.NSBorderlessWindowMask   --remove the round corners
 	))
 	local screen = self:screen() or objc.NSScreen:mainScreen()
-	self:setFrame_display(screen:frame(), true)
+	self:setFrame_display(screen.frame, true)
 	self.backend:_apply_constraints()
 end
 
@@ -917,11 +917,11 @@ end
 --positioning/rectangles -----------------------------------------------------
 
 function window:_flip_y(y)
-	return self.nswin:contentView():frame().size.height - y --flip y around contentView's height
+	return self.nswin.contentView.frame.size.height - y --flip y around contentView's height
 end
 
 function window:get_client_size()
-	local sz = self.nswin:contentView():bounds().size
+	local sz = self.nswin.contentView.bounds.size
 	return sz.width, sz.height
 end
 
@@ -936,7 +936,7 @@ function window:_set_frame_rect(x, y, w, h)
 end
 
 function window:get_frame_rect()
-	return flip_screen_rect(nil, unpack_nsrect(self.nswin:frame()))
+	return flip_screen_rect(nil, unpack_nsrect(self.nswin.frame))
 end
 
 function window:set_frame_rect(x, y, w, h)
@@ -947,7 +947,7 @@ end
 --NOTE: framed windows are constrained to screen bounds but frameless windows are not.
 function window:get_normal_frame_rect()
 	--TODO: fix this
-	return flip_screen_rect(nil, unpack_nsrect(self.nswin:frame()))
+	return flip_screen_rect(nil, unpack_nsrect(self.nswin.frame))
 end
 
 --positioning/constraints ----------------------------------------------------
@@ -956,7 +956,7 @@ local function clean(x)
 	return x ~= 0 and x or nil
 end
 function window:get_minsize()
-	local sz = self.nswin:contentMinSize()
+	local sz = self.nswin.contentMinSize
 	return clean(sz.width), clean(sz.height)
 end
 
@@ -982,7 +982,7 @@ function window:_apply_constraints()
 	--get window position in case we need to set it back
 	local x1, y1 = self:get_normal_frame_rect()
 	--get and constrain size
-	local sz = self.nswin:contentView():bounds().size
+	local sz = self.nswin.contentView.bounds.size
 	sz.width, sz.height = self:_constrain_size(sz.width, sz.height)
 	--put back constrained size
 	self.nswin:setContentSize(sz)
@@ -1004,7 +1004,7 @@ local function clean(x)
 	return x < 2^24 and x or nil
 end
 function window:get_maxsize()
-	local sz = self.nswin:contentMaxSize()
+	local sz = self.nswin.contentMaxSize
 	return clean(sz.width), clean(sz.height)
 end
 
@@ -1021,8 +1021,8 @@ function app:_resize_area_hit(mx, my, w, h)
 end
 
 function Window:nw_clientarea_hit(event)
-	local mp = event:locationInWindow()
-	local rc = self:contentView():bounds()
+	local mp = event.locationInWindow
+	local rc = self.contentView.bounds
 	return box2d.hit(mp.x, mp.y, unpack_nsrect(rc))
 end
 
@@ -1039,7 +1039,7 @@ function Window:nw_titlebar_buttons_hit(event)
 	for i,btn in ipairs(buttons) do
 		local button = self:standardWindowButton(btn)
 		if button then
-			if button:hitTest(button:superview():convertPoint_fromView(event:locationInWindow(), nil)) then
+			if button:hitTest(button.superview:convertPoint_fromView(event.locationInWindow, nil)) then
 				return true
 			end
 		end
@@ -1050,8 +1050,8 @@ end
 --when resized, so we have to detect that manually based on mouse position.
 --Getting that corner/side is needed for proper window snapping.
 function Window:nw_resize_area_hit(event)
-	local mp = event:locationInWindow()
-	local _, _, w, h = unpack_nsrect(self:frame())
+	local mp = event.locationInWindow
+	local _, _, w, h = unpack_nsrect(self.frame)
 	return app:_resize_area_hit(mp.x, mp.y, w, h)
 end
 
@@ -1063,13 +1063,13 @@ function Window:sendEvent(event)
 	if self.frontend:dead() then return end
 	if self.backend._disabled then return end --disable events completely
 	--take over window dragging by the titlebar so that we can post moving events
-	local etype = event:type()
+	local etype = event.type
 	if self.dragging then
 		if etype == objc.NSLeftMouseDragged then
-			self:contentView():nw_setmouse(event)
+			self.contentView:nw_setmouse(event)
 			local mx = self.frontend._mouse.x - self.dragpoint_x
 			local my = self.frontend._mouse.y - self.dragpoint_y
-			local x, y, w, h = flip_screen_rect(nil, unpack_nsrect(self:frame()))
+			local x, y, w, h = flip_screen_rect(nil, unpack_nsrect(self.frame))
 			x = x + mx
 			y = y + my
 			local x1, y1, w1, h1 = self.frontend:_backend_sizing('progress', 'move', x, y, w, h)
@@ -1091,7 +1091,7 @@ function Window:sendEvent(event)
 		and not self:nw_titlebar_buttons_hit(event)
 		and not self:nw_resize_area_hit(event)
 	then
-		self:contentView():nw_setmouse(event)
+		self.contentView:nw_setmouse(event)
 		self:makeKeyAndOrderFront(nil) --NOTE: async operation
 		self.app:activate()
 		self.dragging = true
@@ -1101,7 +1101,7 @@ function Window:sendEvent(event)
 		return
 	elseif etype == objc.NSLeftMouseDown then
 		self:makeKeyAndOrderFront(nil) --NOTE: async operation
-		self.mousepos = event:locationInWindow() --for resizing
+		self.mousepos = event.locationInWindow --for resizing
 	end
 	objc.callsuper(self, 'sendEvent', event)
 end
@@ -1113,7 +1113,7 @@ function Window:windowWillStartLiveResize(notification)
 		self.mousepos = self:mouseLocationOutsideOfEventStream()
 	end
 	local mx, my = self.mousepos.x, self.mousepos.y
-	local _, _, w, h = unpack_nsrect(self:frame())
+	local _, _, w, h = unpack_nsrect(self.frame)
 	self.how = app:_resize_area_hit(mx, my, w, h)
 	self.frontend:_backend_sizing('start', self.how)
 end
@@ -1128,7 +1128,7 @@ end
 
 function Window:nw_resizing(w_, h_)
 	if self.nw_zoomquery or not self.how then return w_, h_ end
-	local x, y, w, h = flip_screen_rect(nil, unpack_nsrect(self:frame()))
+	local x, y, w, h = flip_screen_rect(nil, unpack_nsrect(self.frame))
 	if self.how:find'top' then y, h = y + h - h_, h_ end
 	if self.how:find'bottom' then h = h_ end
 	if self.how:find'left' then x, w = x + w - w_, w_ end
@@ -1239,10 +1239,10 @@ end
 --winapi's MONITORINFO, which is what we want.
 function app:_display(main_h, screen)
 	local t = {}
-	t.x, t.y, t.w, t.h = flip_screen_rect(main_h, unpack_nsrect(screen:frame()))
+	t.x, t.y, t.w, t.h = flip_screen_rect(main_h, unpack_nsrect(screen.frame))
 	t.cx, t.cy, t.cw, t.ch =
-		flip_screen_rect(main_h, unpack_nsrect(screen:visibleFrame()))
-	t.scalingfactor = screen:backingScaleFactor()
+		flip_screen_rect(main_h, unpack_nsrect(screen.visibleFrame))
+	t.scalingfactor = screen.backingScaleFactor
 	return self.frontend:_display(t)
 end
 
@@ -1250,12 +1250,12 @@ function app:displays()
 	local screens = objc.NSScreen:screens()
 
 	--get main_h from the screens snapshot array
-	local frame = screens:objectAtIndex(0):frame() --main screen always comes first
+	local frame = screens:objectAtIndex(0).frame --main screen always comes first
 	local main_h = frame.size.height
 
 	--build the list of display objects to return
 	local displays = {}
-	for i = 0, tonumber(screens:count()-1) do
+	for i = 0, tonumber(screens.count-1) do
 		table.insert(displays, self:_display(main_h, screens:objectAtIndex(i)))
 	end
 	return displays
@@ -1351,7 +1351,7 @@ local function load_cursor(name)
 end
 
 function window:update_cursor()
-	self.nswin:invalidateCursorRectsForView(self.nswin:contentView()) --trigger cursorUpdate
+	self.nswin:invalidateCursorRectsForView(self.nswin.contentView) --trigger cursorUpdate
 end
 
 function Window:cursorUpdate(event)
@@ -1506,7 +1506,7 @@ for vk, name in pairs(keynames) do
 end
 
 local function modifier_flag(mask, flags)
-	flags = flags or tonumber(objc.NSEvent:modifierFlags())
+	flags = flags or tonumber(objc.NSEvent.modifierFlags)
 	return bit.band(flags, mask) ~= 0
 end
 
@@ -1658,7 +1658,7 @@ end
 function app:get_mouse_pos()
 	local e = self.nsapp:currentEvent()
 	local win = e:window()
-	local p = e:locationInWindow()
+	local p = e.locationInWindow
 	local x, y = flip_screen_rect(nil, unpack_nsrect(win:convertRectToScreen(objc.NSMakeRect(p.x, p.y, 0, 0))))
 	return x, y
 end
@@ -1833,7 +1833,7 @@ end
 
 function View:nw_setmouse(event)
 	local m = self.frontend._mouse
-	local pos = event:locationInWindow()
+	local pos = event.locationInWindow
 	local pos = self:convertPoint_fromView(pos, nil)
 	m.x = pos.x
 	m.y = pos.y
@@ -1850,7 +1850,7 @@ end
 --buttons are down, to emulate Windows behavior.
 function View:nw_check_mousemove(event, m)
 	if not m.inside and event:pressedMouseButtons() == 0 then
-		self:window():setAcceptsMouseMovedEvents(false)
+		self.window:setAcceptsMouseMovedEvents(false)
 	end
 end
 
@@ -1914,7 +1914,7 @@ function View:mouseEntered(event)
 	local m = self:nw_setmouse(event)
 	m.inside = true
 	--enable mousemove events only inside the client area to emulate Windows behavior.
-	self:window():setAcceptsMouseMovedEvents(true)
+	self.window:setAcceptsMouseMovedEvents(true)
 	--mute mousenter() if buttons are pressed to emulate Windows behavior.
 	if event:pressedMouseButtons() ~= 0 then return end
 	self.frontend:_backend_mouseenter(m.x, m.y)
@@ -1955,7 +1955,7 @@ function window:_create_bitmap_view(rect)
 
 	self.nw_dynbitmap = dynbitmap{
 		size = function()
-			local _, _, w, h = unpack_nsrect(self:frame())
+			local _, _, w, h = unpack_nsrect(self.frame)
 			return w, h
 		end,
 		freeing = function(_, bitmap)
@@ -2115,7 +2115,7 @@ function view:new(window, frontend, t)
 
 	local rect = objc.NSMakeRect(t.x, t.y, t.w, t.h)
 	self.nsview = self.window:_create_view(rect, frontend, true, t)
-	self.window.nswin:contentView():addSubview(self.nsview)
+	self.window.nswin.contentView:addSubview(self.nsview)
 	return self
 end
 
@@ -2125,7 +2125,7 @@ function view:free()
 end
 
 function view:get_rect()
-	return unpack_nsrect(self.nsview:frame())
+	return unpack_nsrect(self.nsview.frame)
 end
 
 function view:set_rect(x, y, w, h)
@@ -2296,7 +2296,7 @@ end
 
 function window:popup(menu, x, y)
 	local p = objc.NSMakePoint(x, self:_flip_y(y))
-	menu.backend.nsmenu:popUpMenuPositioningItem_atLocation_inView(nil, p, self.nswin:contentView())
+	menu.backend.nsmenu:popUpMenuPositioningItem_atLocation_inView(nil, p, self.nswin.contentView)
 end
 
 --notification icons ---------------------------------------------------------
@@ -2362,7 +2362,7 @@ function notifyicon:invalidate()
 end
 
 function notifyicon:rect()
-	return flip_screen_rect(nil, unpack_nsrect(self.si:valueForKey('window'):frame()))
+	return flip_screen_rect(nil, unpack_nsrect(self.si:valueForKey('window').frame))
 end
 
 function notifyicon:get_tooltip()
